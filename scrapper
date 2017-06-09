@@ -1,0 +1,70 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+# Twitter timeline scrapper for CNN training data
+
+require 'twitter'
+require 'uri'
+require 'fileutils'
+require 'time_difference'
+
+class Scrapper
+  MAX_TWEET_COUNT = 200
+  MAX_TIMELINE_HISTORY = 800
+
+  def initialize(lang: 'fr')
+    @lang = lang
+    @cli = Twitter::REST::Client.new do |conf|
+      conf.consumer_key        = ENV['TWITTER_CONSUMER_KEY']
+      conf.consumer_secret     = ENV['TWITTER_CONSUMER_SECRET']
+      conf.access_token        = ENV['TWITTER_ACCESS_TOKEN']
+      conf.access_token_secret = ENV['TWITTER_ACCESS_TOKEN_SECRET']
+    end
+  end
+
+  def scrap
+    FileUtils.mkdir_p 'scraps/'
+    filename = "scraps/tweets-#{Time.now.to_i}.txt"
+    File.open(filename, 'w') do |file|
+      last_id = nil
+      (0..MAX_TIMELINE_HISTORY).step(MAX_TWEET_COUNT).each do |step|
+        if last_id
+          tl = @cli.home_timeline(count: MAX_TWEET_COUNT, max_id: last_id)
+        else
+          tl = @cli.home_timeline(count: MAX_TWEET_COUNT)
+        end
+        tl.each do |tweet|
+          if [@lang, 'und'].include? tweet.lang
+            file.puts epure_tweet(tweet.text)
+            file.puts
+          end
+          last_id = tweet.id
+        end
+      end
+    end
+    puts "Wrote to #{filename}"
+  rescue Twitter::Error => e
+    STDERR.puts "Error -- #{e.class} => #{e.message}"
+    if e.is_a? Twitter::Error::TooManyRequests
+      min = TimeDifference.between(Time.now, Time.at(e.rate_limit.reset_at)).in_minutes.to_i
+      sec = TimeDifference.between(Time.now, Time.at(e.rate_limit.reset_at)).in_seconds - (min * 60)
+      STDERR.puts "Try again in #{min}:#{sec.to_i}"
+    end
+  end
+
+  private
+
+  def epure_tweet(content)
+    content = content.gsub URI.regexp, ''
+    content = content.gsub /https?\S*/, ''
+    content = content.gsub /RT @[\w\d\-\_]*:? /, ''
+    content = content.gsub /([\&\~\"\'\’\(\[\-\|\`\_\\\)\]\}\,\?\;\.\:\/\!\*])/, ' \1 '
+    content = content.gsub /[^[:print:]]/i, ''
+    content = content.gsub /\n/, ' '
+    content.gsub /\s{2,}/, ' '
+  end
+end
+
+if __FILE__ == $0
+  scrapper = Scrapper.new
+  scrapper.scrap
+end

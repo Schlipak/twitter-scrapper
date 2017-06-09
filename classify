@@ -1,0 +1,77 @@
+#!/usr/bin/env ruby
+# coding: utf-8
+# Scapped tweets classification helper
+
+require 'remedy'
+require 'fileutils'
+require 'rainbow'
+
+class Classifier
+  def initialize
+    @input = Remedy::Interaction.new
+  end
+
+  def classify
+    output_dir = "output/run-#{Time.now.to_i}"
+    FileUtils.mkdir_p output_dir
+    file_neg = "#{output_dir}/tweets.neg"
+    file_pos = "#{output_dir}/tweets.pos"
+    file_ntr = "#{output_dir}/tweets.ntr"
+    of_neg = File.open(file_neg, 'w');
+    of_pos = File.open(file_pos, 'w');
+    of_ntr = File.open(file_ntr, 'w');
+
+    puts "--> #{Rainbow('[left] Positive, [up] Neutral, [right] Negative, [down] Skip').blue.bold}"
+    begin
+      tweets = get_tweets
+      tweets.each_with_index do |tweet, index|
+        progress = "#{(index + 1).to_s.rjust(tweets.count.to_s.size)}/#{tweets.count}"
+        STDOUT.print "\r#{Rainbow(progress).cyan} -- #{tweet.ljust(150)}"
+        STDOUT.flush
+        @input.loop do |key|
+          case key.name
+          when :left
+            of_pos.puts tweet
+            break
+          when :up
+            of_ntr.puts tweet
+            break
+          when :right
+            of_neg.puts tweet
+            break
+          when :down
+            break
+          end        
+        end
+      end
+    rescue Remedy::Keyboard::ControlC
+      puts "\r--> #{Rainbow('Exiting'.ljust(180)).yellow}"
+    end
+    puts "\r--> Wrote files #{Rainbow(file_pos).green}, #{Rainbow(file_ntr).yellow}, #{Rainbow(file_neg).red}"
+    puts "\r--> #{Rainbow('Done'.ljust(180)).green.bold}"
+    
+    of_neg.close
+    of_pos.close
+    of_ntr.close
+  end
+
+  private
+
+  def get_tweets
+    lines = []
+    Dir.entries('./scraps').each do |e|
+      filename = "./scraps/#{e}"
+      next if File.directory? filename
+      File.open(filename, 'r').each_line do |line|
+        line = line.chomp
+        lines << line unless line.empty?
+      end
+    end
+    lines.uniq
+  end
+end
+
+if __FILE__ == $0
+  classifier = Classifier.new
+  classifier.classify
+end
