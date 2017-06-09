@@ -4,7 +4,7 @@ A small Ruby script for scrapping and classifying tweets to create a training da
 # Scrap
 
 * Create an application on Twitter
-* Get your keys and tokens and set them as env variables (check the scrapper file for the names ; you can create a `credentials.*` script that does this for you)
+* Get your keys and tokens and set them as [env variables](https://github.com/Schlipak/twitter-scrapper/blob/master/scrapper#L17-L20)
 * Run the scrapper and get the results in `scraps/`
 
 The scrapper tries to clean up tweets by removing \`RT @user:', links, unprintable characters, and adding whitespace between punctuation signs (this should help CNN classifiers recognize separate words better)
