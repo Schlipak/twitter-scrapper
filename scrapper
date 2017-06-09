@@ -49,6 +49,7 @@ class Scrapper
       sec = TimeDifference.between(Time.now, Time.at(e.rate_limit.reset_at)).in_seconds - (min * 60)
       STDERR.puts "Try again in #{min}:#{sec.to_i}"
     end
+    exit! 1
   end
 
   private
